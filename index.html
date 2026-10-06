@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MiniIdea Framework</title>
+<style>
+:root{
+  --bg:#f6f8fb;--surface:#fff;--text:#1a2430;--muted:#697786;--line:#dfe6ed;
+  --accent:#315f8f;--accent-soft:#eaf1f8;--ok:#27643c;--ok-soft:#e9f4ec;
+  --warn:#92631a;--warn-soft:#fff4df;--danger:#943434;--danger-soft:#fdecec;
+  --shadow:0 10px 28px rgba(20,35,50,.06);--radius:16px;
+}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}
+button,input,textarea,select{font:inherit} button{cursor:pointer}
+.shell{min-height:100vh;display:grid;grid-template-columns:230px 1fr}
+.sidebar{background:#15263a;color:#fff;padding:18px 14px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.brand{display:flex;gap:10px;align-items:center;margin-bottom:22px}.mark{width:38px;height:38px;border-radius:12px;background:#3d78b2;display:grid;place-items:center;font-weight:800}
+.brand small{display:block;opacity:.7}.nav{display:grid;gap:7px}.nav button{border:0;background:transparent;color:#dbe6f1;text-align:left;padding:10px 11px;border-radius:10px}
+.nav button.active,.nav button:hover{background:rgba(255,255,255,.1);color:#fff}.side-bottom{margin-top:auto;display:grid;gap:8px}.version{text-align:center;font-size:11px;opacity:.6}
+.main{min-width:0}.topbar{padding:20px 24px;background:rgba(255,255,255,.92);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:14px;align-items:center;position:sticky;top:0;z-index:5}
+.topbar h1{margin:0;font-size:24px}.topbar p{margin:4px 0 0;color:var(--muted)}.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:#fff;color:var(--text);padding:9px 12px;border-radius:10px}.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}.btn.full{width:100%}
+.content{padding:24px}.grid{display:grid;gap:16px}.grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}.card h2,.card h3{margin-top:0}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}.field label{font-size:12px;font-weight:700}.field input,.field textarea,.field select{border:1px solid var(--line);border-radius:10px;padding:10px 11px;background:#fff}.field textarea{min-height:110px;resize:vertical}
+.hint{font-size:12px;color:var(--muted)}.pill{display:inline-flex;padding:5px 8px;border-radius:999px;font-size:12px;font-weight:700}.pill.ok{background:var(--ok-soft);color:var(--ok)}.pill.warn{background:var(--warn-soft);color:var(--warn)}.pill.danger{background:var(--danger-soft);color:var(--danger)}
+.kpi{font-size:30px;font-weight:800}.muted{color:var(--muted)}.callout{padding:14px 16px;border-radius:12px;background:var(--accent-soft);color:#234b70}
+.option{border:1px solid var(--line);border-radius:12px;padding:14px}.option strong{display:block;margin-bottom:6px}.selected{border-color:var(--accent);background:var(--accent-soft)}
+.scorebar{height:10px;background:#e9eef3;border-radius:999px;overflow:hidden}.scorebar span{display:block;height:100%;background:var(--accent)}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line)}th{font-size:11px;color:var(--muted);text-transform:uppercase}
+@media(max-width:900px){.shell{grid-template-columns:1fr}.sidebar{position:static;height:auto}.nav{grid-auto-flow:column;overflow:auto}.side-bottom{display:none}.topbar{position:static;align-items:flex-start;flex-direction:column}.grid-2,.grid-3{grid-template-columns:1fr}}
+
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+window.IDEA_CONFIG = {
+  name: "MiniIdea Framework",
+  version: "1.0.0",
+  steps: [
+    {id:"spark", title:"1. Idea", subtitle:"Mikä havainto tai tarve synnytti ajatuksen?"},
+    {id:"possibility", title:"2. Mahdollisuus", subtitle:"Mitä voisi olla mahdollista, jos asia tehtäisiin toisin?"},
+    {id:"alternatives", title:"3. Tulkinnat", subtitle:"Tarkastele ideaa useammasta ratkaisukulman näkökulmasta."},
+    {id:"uncertainty", title:"4. Epävarmuus", subtitle:"Mikä ideassa on vielä avoinna tai epävarmaa?"},
+    {id:"experiment", title:"5. Kokeilu", subtitle:"Mikä on pienin hyödyllinen asia, jonka voisi kokeilla?"},
+    {id:"decision", title:"6. Jatkopäätös", subtitle:"Kannattaako edetä MiniDemoon vai riittääkö nykyinen oppi?"}
+  ]
+};
+
+
+window.IDEA_LOGIC = (() => {
+  function clamp(v){ return Math.max(0, Math.min(100, Number(v)||0)); }
+
+  function score(state){
+    const value = clamp(state.valuePotential);
+    const clarity = clamp(state.questionClarity);
+    const testability = clamp(state.testability);
+    const cost = clamp(state.demoEffort);
+    const uncertainty = clamp(state.uncertaintyLevel);
+
+    const total =
+      value * 0.30 +
+      clarity * 0.20 +
+      testability * 0.25 +
+      (100-cost) * 0.15 +
+      uncertainty * 0.10;
+
+    return Math.round(total);
+  }
+
+  function recommendation(state){
+    const s = score(state);
+    if(s >= 72) return {label:"Etene MiniDemoon", cls:"ok", reason:"Idea vaikuttaa arvokkaalta, testattavalta ja riittävän selkeältä kokeiluun."};
+    if(s >= 50) return {label:"Tarkenna ensin", cls:"warn", reason:"Potentiaalia on, mutta ohjaavaa kysymystä tai kokeilua kannattaa vielä rajata."};
+    return {label:"Älä demo vielä", cls:"danger", reason:"Hyöty tai testattavuus ei ole vielä riittävän selkeä suhteessa vaivaan."};
+  }
+
+  function suggestedExperiment(state){
+    const subject = state.user || "käyttäjän";
+    const decision = state.decisionToImprove || "päätöksen";
+    const uncertainty = state.biggestUncertainty || "keskeisen epävarmuuden";
+    return `Rakenna kevyt kokeilu, jossa ${subject} arvioi 3 erilaista tilannetta. Näytä vain ${decision} kannalta välttämättömät tiedot ja testaa erityisesti ${uncertainty}.`;
+  }
+
+  return { score, recommendation, suggestedExperiment };
+})();
+
+
+window.IDEA_UI = (() => {
+  function field(key,label,value,hint=""){
+    return `<div class="field"><label>${label}</label><textarea data-bind="${key}" placeholder="${hint}">${value||""}</textarea>${hint?`<div class="hint">${hint}</div>`:""}</div>`;
+  }
+  function num(key,label,value){
+    return `<div class="field"><label>${label}: <b>${value}</b>/100</label><input type="range" min="0" max="100" value="${value}" data-range="${key}"></div>`;
+  }
+  function spark(s){
+    return `<div class="grid grid-2">
+      <div class="card">
+        <h2>Kevyt lähtöidea</h2>
+        ${field("observation","Mikä havainto, ongelma tai tarve synnytti idean?",s.observation,"Kuvaa havainto ilman ratkaisua.")}
+        ${field("user","Kenelle tämä voisi olla hyödyllinen?",s.user,"Rooli tai käyttäjäryhmä riittää.")}
+        ${field("decisionToImprove","Mikä päätös, toiminta tai ymmärrys paranisi?",s.decisionToImprove,"Esim. hyväksyä / priorisoida / tunnistaa / ennakoida.")}
+      </div>
+      <div class="card">
+        <h2>Älä ratkaise vielä</h2>
+        <div class="callout">Tässä vaiheessa tarkoitus ei ole keksiä ominaisuuslistaa. Ensin selvitetään, mikä mahdollisuus ideassa oikeastaan on.</div>
+      </div>
+    </div>`;
+  }
+  function possibility(s){
+    return `<div class="grid grid-2">
+      <div class="card">
+        <h2>Mahdollisuus</h2>
+        ${field("possibility","Jos asia tehtäisiin aivan toisin, mikä voisi tulla mahdolliseksi?",s.possibility,"Kuvaa mahdollisuus, ei teknistä toteutusta.")}
+        ${field("bestBenefit","Mikä olisi paras mahdollinen hyöty?",s.bestBenefit,"Nopeus, laatu, kannattavuus, asiakaskokemus, yhteisymmärrys...")}
+      </div>
+      <div class="card">
+        <h2>Potentiaalin arvio</h2>
+        ${num("valuePotential","Hyötypotentiaali",s.valuePotential)}
+        ${num("questionClarity","Kysymyksen selkeys",s.questionClarity)}
+      </div>
+    </div>`;
+  }
+  function alternatives(s){
+    const opts = [
+      ["automation","Automaatio","Voisiko tehtävän tehdä osin tai kokonaan automaattisesti?"],
+      ["decision","Päätöksenteon tuki","Voisiko ratkaisu auttaa ihmistä tekemään paremman päätöksen?"],
+      ["workspace","Työpöytä / koonti","Voisiko suurin arvo syntyä tiedon kokoamisesta yhteen paikkaan?"],
+      ["simulation","Simulaatio / what-if","Voisiko idean arvo olla vaihtoehtojen ja seurausten kokeilemisessa?"]
+    ];
+    return `<div class="card">
+      <h2>Neljä vaihtoehtoista tulkintaa</h2>
+      <p class="muted">Sama idea voi johtaa täysin erilaiseen demoon riippuen siitä, mikä mahdollisuus on tärkein.</p>
+      <div class="grid grid-2">
+        ${opts.map(([id,title,desc])=>`<div class="option ${s.interpretation===id?"selected":""}">
+          <strong>${title}</strong><p>${desc}</p><button class="btn" data-interpretation="${id}">Valitse</button>
+        </div>`).join("")}
+      </div>
+      ${field("alternativeNote","Muu tulkinta tai huomio",s.alternativeNote,"Jos mikään neljästä ei osu oikein.")}
+    </div>`;
+  }
+  function uncertainty(s){
+    return `<div class="grid grid-2">
+      <div class="card">
+        <h2>Mikä tässä on epävarmaa?</h2>
+        ${field("biggestUncertainty","Suurin epävarmuus",s.biggestUncertainty,"Data, päätöslogiikka, käyttäjän hyväksyntä, sääntely, teknologia...")}
+        ${field("unknowns","Mitä emme vielä tiedä?",s.unknowns,"Kirjaa 2–4 tärkeintä avoinna olevaa asiaa.")}
+      </div>
+      <div class="card">
+        <h2>Epävarmuuden luonne</h2>
+        ${num("uncertaintyLevel","Kuinka paljon ideassa on aidosti opittavaa?",s.uncertaintyLevel)}
+        ${num("testability","Kuinka helposti epävarmuutta voidaan testata demolla?",s.testability)}
+      </div>
+    </div>`;
+  }
+  function experiment(s){
+    const suggestion = IDEA_LOGIC.suggestedExperiment(s);
+    return `<div class="grid grid-2">
+      <div class="card">
+        <h2>Pienin hyödyllinen kokeilu</h2>
+        ${field("experiment","Mitä konkreettisesti kokeillaan?",s.experiment,suggestion)}
+        ${field("successSignal","Mistä tiedämme, että demo oli hyödyllinen?",s.successSignal,"Esim. yhteisymmärrys syntyy, päätössäännöt kirkastuvat, käyttäjät muuttavat oletuksiaan.")}
+        ${num("demoEffort","Arvioitu demovaiva",s.demoEffort)}
+      </div>
+      <div class="card">
+        <h2>Ehdotus</h2>
+        <div class="callout">${suggestion}</div>
+        <p class="muted">Tavoite on rajata kokeilu niin pieneksi, että oppi saadaan nopeasti.</p>
+      </div>
+    </div>`;
+  }
+  function decision(s){
+    const score = IDEA_LOGIC.score(s);
+    const rec = IDEA_LOGIC.recommendation(s);
+    return `<div class="grid grid-2">
+      <div class="card">
+        <h2>Idea readiness</h2>
+        <div class="kpi">${score}/100</div>
+        <div class="scorebar"><span style="width:${score}%"></span></div>
+        <p><span class="pill ${rec.cls}">${rec.label}</span></p>
+        <p>${rec.reason}</p>
+      </div>
+      <div class="card">
+        <h2>Yhteenveto</h2>
+        <table>
+          <tr><th>Käyttäjä</th><td>${s.user||"—"}</td></tr>
+          <tr><th>Parannettava päätös</th><td>${s.decisionToImprove||"—"}</td></tr>
+          <tr><th>Mahdollisuus</th><td>${s.possibility||"—"}</td></tr>
+          <tr><th>Suurin epävarmuus</th><td>${s.biggestUncertainty||"—"}</td></tr>
+          <tr><th>Kokeilu</th><td>${s.experiment||IDEA_LOGIC.suggestedExperiment(s)}</td></tr>
+        </table>
+        <button class="btn primary" data-export style="margin-top:14px">Vie MiniIdea-yhteenveto</button>
+      </div>
+    </div>`;
+  }
+  return { spark, possibility, alternatives, uncertainty, experiment, decision };
+})();
+
+
+(() => {
+  let state = {
+    step:"spark",
+    observation:"",
+    user:"",
+    decisionToImprove:"",
+    possibility:"",
+    bestBenefit:"",
+    valuePotential:60,
+    questionClarity:45,
+    interpretation:"",
+    alternativeNote:"",
+    biggestUncertainty:"",
+    unknowns:"",
+    uncertaintyLevel:70,
+    testability:65,
+    experiment:"",
+    successSignal:"",
+    demoEffort:30
+  };
+
+  const app = document.getElementById("app");
+
+  function render(){
+    const meta = IDEA_CONFIG.steps.find(x=>x.id===state.step);
+    app.innerHTML = `<div class="shell">
+      <aside class="sidebar">
+        <div class="brand"><div class="mark">I</div><div><b>MiniIdea</b><small>Opportunity framing</small></div></div>
+        <div class="nav">${IDEA_CONFIG.steps.map(x=>`<button data-step="${x.id}" class="${x.id===state.step?"active":""}">${x.title}</button>`).join("")}</div>
+        <div class="side-bottom">
+          <button class="btn full" data-reset>Tyhjennä</button>
+          <div class="version">v${IDEA_CONFIG.version}</div>
+        </div>
+      </aside>
+      <main class="main">
+        <header class="topbar">
+          <div><h1>${meta.title}</h1><p>${meta.subtitle}</p></div>
+          <div class="actions"><button class="btn" data-prev>← Edellinen</button><button class="btn primary" data-next>Seuraava →</button></div>
+        </header>
+        <div class="content">${IDEA_UI[state.step](state)}</div>
+      </main>
+    </div>`;
+    bind();
+  }
+
+  function bind(){
+    document.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{state.step=b.dataset.step;render()});
+    document.querySelectorAll("[data-bind]").forEach(el=>el.onchange=()=>{state[el.dataset.bind]=el.value});
+    document.querySelectorAll("[data-range]").forEach(el=>el.oninput=()=>{state[el.dataset.range]=Number(el.value);render()});
+    document.querySelectorAll("[data-interpretation]").forEach(b=>b.onclick=()=>{state.interpretation=b.dataset.interpretation;render()});
+    document.querySelector("[data-prev]").onclick=()=>move(-1);
+    document.querySelector("[data-next]").onclick=()=>move(1);
+    const exp=document.querySelector("[data-export]"); if(exp) exp.onclick=exportIdea;
+    const reset=document.querySelector("[data-reset]"); if(reset) reset.onclick=()=>{location.reload()};
+  }
+
+  function move(d){
+    const i=IDEA_CONFIG.steps.findIndex(x=>x.id===state.step);
+    state.step=IDEA_CONFIG.steps[Math.max(0,Math.min(IDEA_CONFIG.steps.length-1,i+d))].id;
+    render();
+  }
+
+  function exportIdea(){
+    const out={...state, score:IDEA_LOGIC.score(state), recommendation:IDEA_LOGIC.recommendation(state), suggestedExperiment:IDEA_LOGIC.suggestedExperiment(state), exportedAt:new Date().toISOString()};
+    const blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob), a=document.createElement("a");
+    a.href=url;a.download="miniidea-yhteenveto.json";a.click();URL.revokeObjectURL(url);
+  }
+
+  render();
+})();
+
+</script>
+</body>
+</html>
